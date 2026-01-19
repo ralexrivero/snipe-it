@@ -1,37 +1,157 @@
-# Compose file for production.
-
-volumes:
-  db_data:
-  storage:
+version: '3.8'
 
 services:
-  app:
-    image: snipe/snipe-it:${APP_VERSION:-latest}
-    restart: unless-stopped
-    volumes:
-      - storage:/var/lib/snipeit
-    ports:
-      - "${APP_PORT:-8000}:80"
-    depends_on:
-      db:
-        condition: service_healthy
-        restart: true
-    env_file:
-      - .env
-
-  db:
-    image: mariadb:11.4.7
-    restart: unless-stopped
-    volumes:
-      - db_data:/var/lib/mysql
+  # ========== Snipe-IT Application ==========
+  snipe-it-app:
+    image: snipe/snipe-it:latest
+    hostname: snipe-it-app
+    entrypoint: [ "/bin/sh", "/entrypoint-wrapper.sh" ]
+    command: []
     environment:
-      MYSQL_DATABASE: ${DB_DATABASE}
-      MYSQL_USER: ${DB_USERNAME}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      - APP_ENV=production
+      - APP_DEBUG=false
+      - APP_URL=https://intranet.afapitau.uy/snipeit
+      - FORCE_HTTPS=false
+      - TRUSTED_PROXIES=*
+      - LIVEWIRE_URL_PREFIX=/snipeit
+      - ASSET_URL=https://intranet.afapitau.uy/snipeit
+      - APP_FORCE_ROOT_URL=true
+      - APP_TIMEZONE=America/Montevideo
+      - APP_LOCALE=es
+      - DB_CONNECTION=mysql
+      - DB_HOST=snipe-it-db
+      - DB_PORT=3306
+      - DB_DATABASE=${DB_DATABASE:-snipeit}
+      - DB_USERNAME=${DB_USERNAME:-snipeit}
+      - DB_PREFIX=null
+      - DB_DUMP_PATH=/usr/bin
+      - MAIL_MAILER=smtp
+      - MAIL_HOST=${MAIL_HOST:-smtp.mailtrap.io}
+      - MAIL_PORT=${MAIL_PORT:-2525}
+      - MAIL_ENCRYPTION=${MAIL_ENCRYPTION:-}
+      - MAIL_FROM_ADDR=${MAIL_FROM_ADDR:-ti@afapitau.com.uy}
+      - MAIL_FROM_NAME=${MAIL_FROM_NAME:-Snipe-IT}
+      - MAIL_REPLYTO_ADDR=${MAIL_FROM_ADDR:-ti@afapitau.com.uy}
+      - MAIL_REPLYTO_NAME=${MAIL_FROM_NAME:-Snipe-IT}
+      - IMAGE_LIB=gd
+      - SESSION_LIFETIME=12000
+      - EXPIRE_ON_CLOSE=false
+      - ENCRYPT=false
+      - COOKIE_NAME=snipeit_session
+      - COOKIE_DOMAIN=null
+      - SECURE_COOKIES=true
+      - CACHE_DRIVER=file
+      - SESSION_DRIVER=file
+      - QUEUE_DRIVER=sync
+    volumes:
+      - /srv/data/snipe-it/storage:/var/lib/snipeit
+    configs:
+      - source: snipeit_entrypoint
+        target: /entrypoint-wrapper.sh
+        mode: 755
+    networks:
+      - proxy-net
+      - backend-net
+    secrets:
+      - snipeit_app_key
+      - snipeit_db_password
+      - snipeit_mysql_root_password
     healthcheck:
-      # https://mariadb.com/kb/en/using-healthcheck-sh/#compose-file-example
-      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
-      interval: 5s
-      timeout: 1s
+      test: [ "CMD-SHELL", "curl -f http://localhost:80 || exit 1" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: rollback
+        monitor: 60s
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+        order: start-first
+
+  # ========== MariaDB Database ==========
+  snipe-it-db:
+    image: mariadb:11.4.7
+    hostname: snipe-it-db
+    environment:
+      - MYSQL_DATABASE=${DB_DATABASE:-snipeit}
+      - MYSQL_USER=${DB_USERNAME:-snipeit}
+      - MYSQL_PASSWORD_FILE=/run/secrets/snipeit_db_password
+      - MARIADB_ROOT_PASSWORD_FILE=/run/secrets/snipeit_mysql_root_password
+    volumes:
+      - /srv/data/snipe-it/db:/var/lib/mysql
+    networks:
+      - backend-net
+    secrets:
+      - snipeit_db_password
+      - snipeit_mysql_root_password
+    healthcheck:
+      test: [ "CMD", "healthcheck.sh", "--connect", "--innodb_initialized" ]
+      interval: 10s
+      timeout: 5s
       retries: 5
+      start_period: 30s
+    deploy:
+      replicas: 1
+      placement:
+        constraints:
+          - node.role == manager
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+      resources:
+        limits:
+          memory: 1G
+          cpus: '1.0'
+        reservations:
+          memory: 512M
+          cpus: '0.5'
+      update_config:
+        parallelism: 1
+        delay: 10s
+        order: start-first
+        failure_action: rollback
+        monitor: 60s
+      rollback_config:
+        parallelism: 1
+        delay: 5s
+        order: start-first
+
+configs:
+  snipeit_entrypoint:
+    file: ./entrypoint-wrapper.sh
+
+secrets:
+  snipeit_app_key:
+    external: true
+  snipeit_db_password:
+    external: true
+  snipeit_mysql_root_password:
+    external: true
+
+networks:
+  proxy-net:
+    external: true
+  backend-net:
+    external: true
