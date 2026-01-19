@@ -2,9 +2,11 @@
 
 ## Descripción
 
-Stack de Snipe-IT desplegado en Docker Swarm, accesible a través del proxy reverso en `intranet.afapitau.uy/snipeit`.
+Guia unica y paso a paso para desplegar el stack de Snipe-IT en Docker Swarm.
+Acceso por proxy reverso en `intranet.afapitau.uy/snipeit`.
 
-**IMPORTANTE:** Este stack utiliza Docker Secrets para gestionar credenciales sensibles. No se utilizan archivos `.env`.
+**IMPORTANTE:** Este stack utiliza Docker Secrets para gestionar credenciales sensibles.
+No se utilizan archivos `.env` ni son necesarios.
 
 ## Requisitos Previos
 
@@ -16,6 +18,28 @@ Stack de Snipe-IT desplegado en Docker Swarm, accesible a través del proxy reve
 - Configuración del proxy: `/srv/iac/infra-deployments/reverse-proxy/conf.d/locations/500-snipeit.conf`
 
 ## Pasos para Desplegar en Producción
+
+### 0. Limpieza completa (solo para pruebas)
+
+Si necesitas validar el procedimiento desde cero:
+
+```bash
+# Eliminar stack
+docker stack rm snipe-it
+
+# Esperar a que no queden servicios
+docker service ls | grep snipe-it
+
+# Eliminar secrets (si existen)
+docker secret rm snipeit_app_key snipeit_db_password snipeit_mysql_root_password
+docker secret rm snipeit_mail_username snipeit_mail_password 2>/dev/null || true
+```
+
+**Nota:** Esto no borra datos persistentes en `/srv/data/snipe-it/`.
+Si eliminas secrets y conservas `/srv/data/snipe-it/db`, el usuario `snipeit`
+seguira con el password anterior y fallara la conexion. Para pruebas desde
+cero, elimina el contenido de `/srv/data/snipe-it/db` o conserva los secrets
+originales.
 
 ### 1. Verificar redes Docker
 
