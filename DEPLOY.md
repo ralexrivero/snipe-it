@@ -13,7 +13,7 @@
 
 ```bash
 cd /home/$USER/apps
-git clone https://github.com/ralexrivero/snipe-it.git
+git clone <URL_DEL_REPOSITORIO> snipe-it
 cd snipe-it
 ```
 
