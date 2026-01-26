@@ -30,15 +30,39 @@ else
     exit 1
 fi
 
-# Variables opcionales (mail)
-if [ -f "/run/secrets/snipeit_mail_password" ]; then
-    export MAIL_PASSWORD=$(cat /run/secrets/snipeit_mail_password)
-    echo "[SNIPE-IT WRAPPER] MAIL_PASSWORD configurado desde secret"
-fi
-
-if [ -f "/run/secrets/snipeit_mail_username" ]; then
-    export MAIL_USERNAME=$(cat /run/secrets/snipeit_mail_username)
-    echo "[SNIPE-IT WRAPPER] MAIL_USERNAME configurado desde secret"
+# Variables de email desde secreto JSON
+if [ -f "/run/secrets/snipeit_email_credentials" ]; then
+    # Leer el JSON y extraer los valores usando jq o python
+    if command -v jq >/dev/null 2>&1; then
+        export MAIL_HOST=$(cat /run/secrets/snipeit_email_credentials | jq -r '.smtp_host')
+        export MAIL_USERNAME=$(cat /run/secrets/snipeit_email_credentials | jq -r '.smtp_username')
+        export MAIL_PASSWORD=$(cat /run/secrets/snipeit_email_credentials | jq -r '.smtp_password')
+        export MAIL_FROM_ADDR=$(cat /run/secrets/snipeit_email_credentials | jq -r '.email')
+        echo "[SNIPE-IT WRAPPER] Credenciales de email configuradas desde secreto JSON (usando jq)"
+    elif command -v python3 >/dev/null 2>&1; then
+        export MAIL_HOST=$(python3 -c "import json, sys; print(json.load(sys.stdin)['smtp_host'])" < /run/secrets/snipeit_email_credentials)
+        export MAIL_USERNAME=$(python3 -c "import json, sys; print(json.load(sys.stdin)['smtp_username'])" < /run/secrets/snipeit_email_credentials)
+        export MAIL_PASSWORD=$(python3 -c "import json, sys; print(json.load(sys.stdin)['smtp_password'])" < /run/secrets/snipeit_email_credentials)
+        export MAIL_FROM_ADDR=$(python3 -c "import json, sys; print(json.load(sys.stdin)['email'])" < /run/secrets/snipeit_email_credentials)
+        echo "[SNIPE-IT WRAPPER] Credenciales de email configuradas desde secreto JSON (usando python3)"
+    else
+        # Fallback: usar grep y sed (menos robusto pero funciona)
+        export MAIL_HOST=$(grep -o '"smtp_host":\s*"[^"]*"' /run/secrets/snipeit_email_credentials | sed 's/.*"smtp_host":\s*"\([^"]*\)".*/\1/')
+        export MAIL_USERNAME=$(grep -o '"smtp_username":\s*"[^"]*"' /run/secrets/snipeit_email_credentials | sed 's/.*"smtp_username":\s*"\([^"]*\)".*/\1/')
+        export MAIL_PASSWORD=$(grep -o '"smtp_password":\s*"[^"]*"' /run/secrets/snipeit_email_credentials | sed 's/.*"smtp_password":\s*"\([^"]*\)".*/\1/')
+        export MAIL_FROM_ADDR=$(grep -o '"email":\s*"[^"]*"' /run/secrets/snipeit_email_credentials | sed 's/.*"email":\s*"\([^"]*\)".*/\1/')
+        echo "[SNIPE-IT WRAPPER] Credenciales de email configuradas desde secreto JSON (usando grep/sed)"
+    fi
+    
+    # Configurar puerto y encriptación por defecto para SMTP interno
+    export MAIL_PORT=${MAIL_PORT:-25}
+    export MAIL_ENCRYPTION=${MAIL_ENCRYPTION:-}
+    export MAIL_REPLYTO_ADDR=${MAIL_FROM_ADDR}
+    echo "[SNIPE-IT WRAPPER] MAIL_HOST=${MAIL_HOST}"
+    echo "[SNIPE-IT WRAPPER] MAIL_USERNAME=${MAIL_USERNAME}"
+    echo "[SNIPE-IT WRAPPER] MAIL_FROM_ADDR=${MAIL_FROM_ADDR}"
+else
+    echo "[SNIPE-IT WRAPPER] WARNING: No se encontró /run/secrets/snipeit_email_credentials, usando valores por defecto"
 fi
 
 echo "[SNIPE-IT WRAPPER] Todos los secrets leídos correctamente"

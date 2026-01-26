@@ -24,12 +24,9 @@ services:
       - DB_PREFIX=null
       - DB_DUMP_PATH=/usr/bin
       - MAIL_MAILER=smtp
-      - MAIL_HOST=${MAIL_HOST:-smtp.mailtrap.io}
-      - MAIL_PORT=${MAIL_PORT:-2525}
-      - MAIL_ENCRYPTION=${MAIL_ENCRYPTION:-}
-      - MAIL_FROM_ADDR=${MAIL_FROM_ADDR:-ti@afapitau.com.uy}
+      - MAIL_PORT=25
+      - MAIL_ENCRYPTION=
       - MAIL_FROM_NAME=${MAIL_FROM_NAME:-Snipe-IT}
-      - MAIL_REPLYTO_ADDR=${MAIL_FROM_ADDR:-ti@afapitau.com.uy}
       - MAIL_REPLYTO_NAME=${MAIL_FROM_NAME:-Snipe-IT}
       - IMAGE_LIB=gd
       - SESSION_LIFETIME=12000
@@ -54,6 +51,7 @@ services:
       - snipeit_app_key
       - snipeit_db_password
       - snipeit_mysql_root_password
+      - snipeit_email_credentials
     healthcheck:
       test: [ "CMD-SHELL", "curl -f http://localhost:80 || exit 1" ]
       interval: 30s
@@ -146,6 +144,8 @@ secrets:
   snipeit_db_password:
     external: true
   snipeit_mysql_root_password:
+    external: true
+  snipeit_email_credentials:
     external: true
 
 networks:

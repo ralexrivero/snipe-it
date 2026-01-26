@@ -181,6 +181,46 @@ Acceder a `https://intranet.afapitau.uy/snipeit` (o `http://` si no hay SSL conf
 
 Los secrets se montan en `/run/secrets/{secret_name}` dentro del contenedor. El script `entrypoint-wrapper.sh` lee estos secrets y los exporta como variables de entorno antes de iniciar Snipe-IT.
 
+## Configuracion de Email (opcional)
+
+Si queres habilitar envio de email:
+
+1. Defini los valores SMTP (en `docker-compose.yml`):
+   - `MAIL_HOST`
+   - `MAIL_PORT`
+   - `MAIL_ENCRYPTION` (tls/ssl o vacio)
+   - `MAIL_FROM_ADDR`
+   - `MAIL_FROM_NAME`
+
+2. Crea los secrets SMTP:
+
+```bash
+echo -n "usuario@smtp.example.com" | docker secret create snipeit_mail_username -
+echo -n "password_smtp_aqui" | docker secret create snipeit_mail_password -
+```
+
+3. Agrega los secrets al servicio `snipe-it-app` y a la seccion `secrets`:
+
+```yaml
+services:
+  snipe-it-app:
+    secrets:
+      - snipeit_mail_username
+      - snipeit_mail_password
+
+secrets:
+  snipeit_mail_username:
+    external: true
+  snipeit_mail_password:
+    external: true
+```
+
+4. Redesplega el stack:
+
+```bash
+docker stack deploy -c docker-compose.yml snipe-it
+```
+
 ## Actualización del Stack
 
 Para actualizar el stack después de cambios:
