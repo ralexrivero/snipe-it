@@ -24,8 +24,6 @@ services:
       - DB_PREFIX=null
       - DB_DUMP_PATH=/usr/bin
       - MAIL_MAILER=smtp
-      - MAIL_PORT=25
-      - MAIL_ENCRYPTION=
       - MAIL_FROM_NAME=${MAIL_FROM_NAME:-Snipe-IT}
       - MAIL_REPLYTO_NAME=${MAIL_FROM_NAME:-Snipe-IT}
       - IMAGE_LIB=gd

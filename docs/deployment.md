@@ -1,355 +1,355 @@
-# Snipe-IT Docker Swarm Deployment
+# Despliegue de Snipe-IT en Docker Swarm
 
-Step-by-step guide for deploying the Snipe-IT stack in Docker Swarm. Access via reverse proxy at `intranet.afapitau.uy/snipeit`.
+Guía paso a paso para desplegar el stack de Snipe-IT en Docker Swarm. Acceso mediante proxy reverso en `intranet.afapitau.uy/snipeit`.
 
-**IMPORTANT:** This stack uses Docker Secrets to manage sensitive credentials. `.env` files are not used and not required.
+**IMPORTANTE:** Este stack utiliza Docker Secrets para gestionar credenciales sensibles. No se utilizan archivos `.env` ni son necesarios.
 
-## Prerequisites
+## Requisitos Previos
 
-- Docker Swarm initialized
-- Docker overlay networks:
-  - `proxy-net`: Network shared with reverse proxy
-  - `backend-net`: Network for backend service communication
-- `reverse-proxy` stack deployed
-- Proxy configuration: `/srv/iac/infra-deployments/reverse-proxy/conf.d/locations/500-snipeit.conf`
+- Docker Swarm inicializado
+- Redes Docker overlay:
+  - `proxy-net`: Red compartida con el proxy reverso
+  - `backend-net`: Red para comunicación entre servicios backend
+- Stack `reverse-proxy` desplegado
+- Configuración del proxy: `/srv/iac/infra-deployments/reverse-proxy/conf.d/locations/500-snipeit.conf`
 
-## Production Deployment Steps
+## Pasos para Desplegar en Producción
 
-### 0. Complete Cleanup (testing only)
+### 0. Limpieza Completa (solo para pruebas)
 
-To validate the procedure from scratch:
+Para validar el procedimiento desde cero:
 
 ```bash
-# Remove stack
+# Eliminar stack
 docker stack rm snipe-it
 
-# Wait until no services remain
+# Esperar hasta que no queden servicios
 docker service ls | grep snipe-it
 
-# Remove secrets (if they exist)
+# Eliminar secrets (si existen)
 docker secret rm snipeit_app_key snipeit_db_password snipeit_mysql_root_password
 docker secret rm snipeit_mail_username snipeit_mail_password 2>/dev/null || true
 ```
 
-**Note:** This does not delete persistent data in `/srv/data/snipe-it/`. If you delete secrets and keep `/srv/data/snipe-it/db`, the `snipeit` user will retain the previous password and connection will fail. For testing from scratch, delete the contents of `/srv/data/snipe-it/db` or keep the original secrets.
+**Nota:** Esto no elimina datos persistentes en `/srv/data/snipe-it/`. Si eliminas secrets y conservas `/srv/data/snipe-it/db`, el usuario `snipeit` mantendrá la contraseña anterior y la conexión fallará. Para pruebas desde cero, elimina el contenido de `/srv/data/snipe-it/db` o conserva los secrets originales.
 
-### 1. Verify Docker Networks
+### 1. Verificar Redes Docker
 
 ```bash
 docker network ls | grep -E "proxy-net|backend-net"
 ```
 
-If they don't exist, create them:
+Si no existen, crearlas:
 
 ```bash
 docker network create --driver overlay proxy-net
 docker network create --driver overlay backend-net
 ```
 
-### 2. Create Docker Secrets
+### 2. Crear Docker Secrets
 
-Secrets are required for the stack to function. Create the following secrets:
+Los secrets son obligatorios para que el stack funcione. Crear los siguientes secrets:
 
-#### a) APP_KEY (Laravel Application Key)
+#### a) APP_KEY (Clave de Aplicación Laravel)
 
-Generate a new APP_KEY:
+Generar una nueva APP_KEY:
 
 ```bash
 APP_KEY=$(docker run --rm snipe/snipe-it:latest php artisan key:generate --show | grep -oP 'base64:[^\s]+' || echo "base64:$(openssl rand -base64 32)")
 echo -n "$APP_KEY" | docker secret create snipeit_app_key -
 ```
 
-**OR** if you already have an APP_KEY:
+**O** si ya tienes una APP_KEY:
 
 ```bash
-echo -n "base64:YOUR_BASE64_KEY_HERE" | docker secret create snipeit_app_key -
+echo -n "base64:TU_CLAVE_BASE64_AQUI" | docker secret create snipeit_app_key -
 ```
 
-#### b) DB_PASSWORD (Database User Password)
+#### b) DB_PASSWORD (Contraseña de Usuario de Base de Datos)
 
 ```bash
-echo -n "your_secure_password_here" | docker secret create snipeit_db_password -
+echo -n "tu_contraseña_segura_aqui" | docker secret create snipeit_db_password -
 ```
 
-#### c) MYSQL_ROOT_PASSWORD (MariaDB Root Password)
+#### c) MYSQL_ROOT_PASSWORD (Contraseña Root de MariaDB)
 
 ```bash
-echo -n "your_root_password_here" | docker secret create snipeit_mysql_root_password -
+echo -n "tu_contraseña_root_aqui" | docker secret create snipeit_mysql_root_password -
 ```
 
-#### d) Optional Email Secrets
+#### d) Secrets Opcionales de Email
 
-For SMTP email configuration, see [Email Configuration](email-configuration.md).
+Para configuración de email SMTP, consultar [Configuración de Email](email-configuration.md).
 
-**Note:** If you don't create these email secrets, the stack will function but email will not be configured.
+**Nota:** Si no creas estos secrets de email, el stack funcionará pero el email no estará configurado.
 
-### 3. Verify Created Secrets
+### 3. Verificar Secrets Creados
 
 ```bash
 docker secret ls | grep snipeit
 ```
 
-You should see at least:
+Deberías ver al menos:
 - `snipeit_app_key`
 - `snipeit_db_password`
 - `snipeit_mysql_root_password`
 
-### 4. Verify Data Directories
+### 4. Verificar Directorios de Datos
 
-Persistent data is stored in:
+Los datos persistentes se almacenan en:
 
 ```bash
-# Verify they exist
+# Verificar que existen
 ls -la /srv/data/snipe-it/storage
 ls -la /srv/data/snipe-it/db
 
-# If they don't exist, create them
+# Si no existen, crearlos
 mkdir -p /srv/data/snipe-it/storage
 mkdir -p /srv/data/snipe-it/db
 
-# Ensure correct permissions
+# Asegurar permisos correctos
 chown -R 1000:1000 /srv/data/snipe-it/storage
 chmod -R 755 /srv/data/snipe-it/storage
 ```
 
-### 5. Deploy the Stack
+### 5. Desplegar el Stack
 
 ```bash
 cd /home/ralex/apps/snipe-it
 docker stack deploy -c docker-compose.yml snipe-it
 ```
 
-### 6. Verify Deployment
+### 6. Verificar Despliegue
 
 ```bash
-# View stack services
+# Ver servicios del stack
 docker service ls | grep snipe-it
 
-# View detailed service status
+# Ver estado detallado de servicios
 docker service ps snipe-it_snipe-it-app --no-trunc
 docker service ps snipe-it_snipe-it-db --no-trunc
 
-# View application logs
+# Ver logs de la aplicación
 docker service logs snipe-it_snipe-it-app --tail 50
 
-# View database logs
+# Ver logs de la base de datos
 docker service logs snipe-it_snipe-it-db --tail 50
 ```
 
-### 7. Redeploy Reverse Proxy
+### 7. Redesplegar Proxy Reverso
 
-For the proxy to load the Snipe-IT configuration:
+Para que el proxy cargue la configuración de Snipe-IT:
 
 ```bash
 cd /srv/iac/infra-deployments
 docker stack deploy -c reverse-proxy/reverse_proxy-stack.yml reverse-proxy
 ```
 
-**Note:** The reverse proxy is in `infra-deployments` because it's shared infrastructure. The Snipe-IT stack is in this repository.
+**Nota:** El proxy reverso está en `infra-deployments` porque es infraestructura compartida. El stack de Snipe-IT está en este repositorio.
 
-### 8. Verify Access
+### 8. Verificar Acceso
 
-Access `https://intranet.afapitau.uy/snipeit` (or `http://` if SSL is not configured).
+Acceder a `https://intranet.afapitau.uy/snipeit` (o `http://` si SSL no está configurado).
 
-## Required Secrets
+## Secrets Requeridos
 
-| Secret | Description | Required |
-|--------|-------------|----------|
-| `snipeit_app_key` | Laravel application key (generate with `php artisan key:generate`) | Yes |
-| `snipeit_db_password` | Database user password | Yes |
-| `snipeit_mysql_root_password` | MariaDB root password | Yes |
-| `snipeit_email_credentials` | Email credentials in JSON format | No |
+| Secreto | Descripción | Requerido |
+|---------|-------------|-----------|
+| `snipeit_app_key` | Clave de aplicación Laravel (generar con `php artisan key:generate`) | Sí |
+| `snipeit_db_password` | Contraseña de usuario de base de datos | Sí |
+| `snipeit_mysql_root_password` | Contraseña root de MariaDB | Sí |
+| `snipeit_email_credentials` | Credenciales de email en formato JSON | No |
 
-## Secret Structure
+## Estructura de Secrets
 
-Secrets are mounted at `/run/secrets/{secret_name}` inside the container. The `entrypoint-wrapper.sh` script reads these secrets and exports them as environment variables before starting Snipe-IT.
+Los secrets se montan en `/run/secrets/{secret_name}` dentro del contenedor. El script `entrypoint-wrapper.sh` lee estos secrets y los exporta como variables de entorno antes de iniciar Snipe-IT.
 
-## Stack Updates
+## Actualización del Stack
 
-To update the stack after changes:
+Para actualizar el stack después de cambios:
 
 ```bash
 cd /home/ralex/apps/snipe-it
 docker stack deploy -c docker-compose.yml snipe-it
 ```
 
-Swarm will update only modified services with a rolling update.
+Swarm actualizará solo los servicios modificados con un rolling update.
 
-## Secret Management
+## Gestión de Secrets
 
-### View Existing Secrets
+### Ver Secrets Existentes
 
 ```bash
 docker secret ls | grep snipeit
 ```
 
-### View Secret Content (manager node only)
+### Ver Contenido de un Secreto (solo en nodo manager)
 
 ```bash
 docker secret inspect snipeit_app_key --format '{{.Spec.Data}}' | base64 -d && echo
 ```
 
-### Update a Secret
+### Actualizar un Secreto
 
-**IMPORTANT:** Secrets in Docker Swarm are immutable. To "update", you must:
+**IMPORTANTE:** Los secrets en Docker Swarm son inmutables. Para "actualizar", debes:
 
-1. Create a new secret with a different name or remove the previous one
-2. Update the service to use the new secret
-3. Remove the old secret
+1. Crear un nuevo secreto con nombre diferente o eliminar el anterior
+2. Actualizar el servicio para usar el nuevo secreto
+3. Eliminar el secreto antiguo
 
-Example password rotation:
+Ejemplo de rotación de contraseña:
 
 ```bash
-# 1. Create new password
-echo -n "new_secure_password" | docker secret create snipeit_db_password_v2 -
+# 1. Crear nueva contraseña
+echo -n "nueva_contraseña_segura" | docker secret create snipeit_db_password_v2 -
 
-# 2. Update the service (this requires updating docker-compose.yml first)
-# Edit docker-compose.yml and change snipeit_db_password to snipeit_db_password_v2
+# 2. Actualizar el servicio (esto requiere actualizar docker-compose.yml primero)
+# Editar docker-compose.yml y cambiar snipeit_db_password por snipeit_db_password_v2
 cd /home/ralex/apps/snipe-it
 docker stack deploy -c docker-compose.yml snipe-it
 
-# 3. Once verified working, remove the old secret
+# 3. Una vez verificado que funciona, eliminar el secreto antiguo
 docker secret rm snipeit_db_password
 ```
 
-### Remove Secrets
+### Eliminar Secrets
 
 ```bash
-# First remove the stack that uses the secret
+# Primero eliminar el stack que usa el secreto
 docker stack rm snipe-it
 
-# Then remove the secret
+# Luego eliminar el secreto
 docker secret rm snipeit_app_key
 ```
 
 ## Troubleshooting
 
-### Service Not Starting
+### Servicio No Inicia
 
 ```bash
-# View detailed logs
+# Ver logs detallados
 docker service logs snipe-it_snipe-it-app --tail 100 --follow
 
-# View task status
+# Ver estado de las tareas
 docker service ps snipe-it_snipe-it-app --no-trunc
 ```
 
-If you see errors about missing secrets:
+Si ves errores sobre secrets faltantes:
 
 ```bash
-# Verify secrets exist
+# Verificar que los secrets existan
 docker secret ls | grep snipeit
 
-# Verify wrapper logs
+# Verificar logs del wrapper
 docker service logs snipe-it_snipe-it-app | grep -i "WRAPPER\|ERROR\|secret"
 ```
 
-### Database Connection Error
+### Error de Conexión a Base de Datos
 
-1. Verify the DB service is healthy:
+1. Verificar que el servicio de DB esté saludable:
 
 ```bash
 docker service ps snipe-it_snipe-it-db
 ```
 
-2. Verify DB logs:
+2. Verificar logs de la DB:
 
 ```bash
 docker service logs snipe-it_snipe-it-db --tail 100
 ```
 
-3. Verify both services are on `backend-net`:
+3. Verificar que ambos servicios estén en `backend-net`:
 
 ```bash
 docker service inspect snipe-it_snipe-it-app | grep -A 10 Networks
 docker service inspect snipe-it_snipe-it-db | grep -A 10 Networks
 ```
 
-### Proxy 502 Error
+### Error 502 del Proxy
 
-1. Verify the application service is running:
+1. Verificar que el servicio de aplicación esté corriendo:
 
 ```bash
 docker service ls | grep snipe-it
 ```
 
-2. Verify the service is on the `proxy-net` network:
+2. Verificar que el servicio esté en la red `proxy-net`:
 
 ```bash
 docker service inspect snipe-it_snipe-it-app | grep proxy-net
 ```
 
-3. Verify service DNS resolution:
+3. Verificar resolución DNS del servicio:
 
 ```bash
-# From inside a proxy container
+# Desde dentro de un contenedor del proxy
 docker exec -it $(docker ps -q -f name=reverse-proxy_nginx) nslookup snipe-it_snipe-it-app
 ```
 
-4. Verify proxy logs:
+4. Verificar logs del proxy:
 
 ```bash
 docker service logs reverse-proxy_nginx --tail 100 | grep snipeit
 ```
 
-### Volume Permission Issues
+### Problemas de Permisos en Volúmenes
 
 ```bash
-# Verify permissions
+# Verificar permisos
 ls -la /srv/data/snipe-it/
 
-# Adjust permissions if necessary
+# Ajustar permisos si es necesario
 chown -R 1000:1000 /srv/data/snipe-it/storage
 chmod -R 755 /srv/data/snipe-it/storage
 ```
 
-### Verify Wrapper is Reading Secrets
+### Verificar que el Wrapper Está Leyendo los Secrets
 
 ```bash
 docker service logs snipe-it_snipe-it-app | grep -i "WRAPPER"
 ```
 
-You should see messages like:
+Deberías ver mensajes como:
 ```
 [SNIPE-IT WRAPPER] Iniciando entrypoint-wrapper.sh
 [SNIPE-IT WRAPPER] APP_KEY configurado desde secret
 [SNIPE-IT WRAPPER] DB_PASSWORD configurado desde secret
 ```
 
-## Stack Removal
+## Eliminación del Stack
 
-To remove the complete stack:
+Para eliminar el stack completo:
 
 ```bash
 docker stack rm snipe-it
 ```
 
-**Warning:** This removes services but **NOT** volumes or secrets. Data in `/srv/data/snipe-it/` is preserved.
+**Advertencia:** Esto elimina los servicios pero **NO** los volúmenes ni los secrets. Los datos en `/srv/data/snipe-it/` se mantienen.
 
-To also remove data:
+Para eliminar también los datos:
 
 ```bash
-# First remove the stack
+# Primero eliminar el stack
 docker stack rm snipe-it
 
-# Wait for services to stop
+# Esperar a que los servicios se detengan
 docker service ls | grep snipe-it
 
-# Remove data (CAUTION! This deletes all information)
+# Eliminar datos (¡CUIDADO! Esto borra toda la información)
 rm -rf /srv/data/snipe-it/
 ```
 
-## Important Notes
+## Notas Importantes
 
-- The stack name **must be** `snipe-it` for the proxy to resolve `snipe-it_snipe-it-app:80`
-- The application service must be named `snipe-it-app` to maintain consistency with proxy configuration
-- Volumes use absolute paths (`/srv/data/snipe-it/`) for Swarm compatibility
-- Services are restricted to `manager` nodes for consistency
-- The application service healthcheck has a `start_period` of 120s to allow Laravel to complete initial migrations
-- **`.env` files are NOT used** - everything is managed through Docker Secrets
+- El nombre del stack **debe ser** `snipe-it` para que el proxy pueda resolver `snipe-it_snipe-it-app:80`
+- El servicio de aplicación debe llamarse `snipe-it-app` para mantener consistencia con la configuración del proxy
+- Los volúmenes usan rutas absolutas (`/srv/data/snipe-it/`) para compatibilidad con Swarm
+- Los servicios están restringidos a nodos `manager` para mantener consistencia
+- El healthcheck del servicio de aplicación tiene un `start_period` de 120s para permitir que Laravel complete las migraciones iniciales
+- **No se utilizan archivos `.env`** - todo se gestiona a través de Docker Secrets
 
-## References
+## Referencias
 
-- [Official Snipe-IT Documentation](https://snipe-it.readme.io/docs)
-- [Docker Swarm Documentation](https://docs.docker.com/engine/swarm/)
-- [Docker Secrets Documentation](https://docs.docker.com/engine/swarm/secrets/)
+- [Documentación oficial de Snipe-IT](https://snipe-it.readme.io/docs)
+- [Documentación de Docker Swarm](https://docs.docker.com/engine/swarm/)
+- [Documentación de Docker Secrets](https://docs.docker.com/engine/swarm/secrets/)

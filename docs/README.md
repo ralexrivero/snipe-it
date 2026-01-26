@@ -1,16 +1,17 @@
-# Snipe-IT Deployment Documentation
+# Documentación de Despliegue de Snipe-IT
 
-This directory contains deployment and configuration documentation for Snipe-IT in Docker Swarm.
+Este directorio contiene la documentación de despliegue y configuración para Snipe-IT en Docker Swarm.
 
-## Documentation Index
+## Índice de Documentación
 
-- [Deployment Guide](deployment.md) - Complete step-by-step guide for deploying Snipe-IT in Docker Swarm
-- [Secrets Management](secrets.md) - Instructions for creating and managing Docker Swarm secrets
-- [Email Configuration](email-configuration.md) - Email setup using Docker Swarm secrets
+- [Guía de Despliegue](deployment.md) - Guía completa paso a paso para desplegar Snipe-IT en Docker Swarm
+- [Gestión de Secrets](secrets.md) - Instrucciones para crear y gestionar secrets de Docker Swarm
+- [Configuración de Email](email-configuration.md) - Configuración de email usando secrets de Docker Swarm
+- [Pruebas de Email](testing-email.md) - Guía para verificar que la configuración de email funciona correctamente
 
-## Quick Start
+## Inicio Rápido
 
-1. Review [Deployment Guide](deployment.md) for prerequisites and setup
-2. Create required secrets following [Secrets Management](secrets.md)
-3. Deploy the stack using `docker stack deploy`
-4. Configure email if needed using [Email Configuration](email-configuration.md)
+1. Revisar la [Guía de Despliegue](deployment.md) para requisitos previos y configuración
+2. Crear los secrets requeridos siguiendo [Gestión de Secrets](secrets.md)
+3. Desplegar el stack usando `docker stack deploy`
+4. Configurar email si es necesario usando [Configuración de Email](email-configuration.md)

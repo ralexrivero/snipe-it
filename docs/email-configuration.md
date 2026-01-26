@@ -1,46 +1,47 @@
-# Email Configuration
+# Configuración de Email
 
-This document describes the email configuration for Snipe-IT using Docker Swarm secrets.
+Este documento describe la configuración de email para Snipe-IT usando secrets de Docker Swarm.
 
-## Overview
+## Resumen
 
-The email system is configured to use Docker Swarm secrets for credential management. Credentials are stored in the `snipeit_email_credentials` secret.
+El sistema de email está configurado para usar secrets de Docker Swarm para la gestión de credenciales. Las credenciales se almacenan en el secreto `snipeit_email_credentials`.
 
-## Current Configuration
+## Configuración Actual
 
-Credentials are stored in the `snipeit_email_credentials` secret:
+Las credenciales están almacenadas en el secreto `snipeit_email_credentials`:
 
-- SMTP Host: 167.254.0.177
+- SMTP Host: SERVER111.unioncapital3.net
+- SMTP Port: 587
+- SMTP Encryption: TLS
 - SMTP Username: unioncapital3\snipeit
-- SMTP Password: (stored in secret)
+- SMTP Password: (almacenado en secreto)
 - Email From: snipeit@afapitau.com.uy
-- SMTP Port: 25 (no encryption)
 
-## How It Works
+## Cómo Funciona
 
-1. The `snipeit_email_credentials` secret contains a JSON file with credentials
-2. The `entrypoint-wrapper.sh` reads the secret when the container starts
-3. Extracts values from JSON using Python3 (available in the container)
-4. Exports environment variables: `MAIL_HOST`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDR`
+1. El secreto `snipeit_email_credentials` contiene un archivo JSON con las credenciales
+2. El `entrypoint-wrapper.sh` lee el secreto cuando el contenedor inicia
+3. Extrae los valores del JSON usando Python3 (disponible en el contenedor)
+4. Exporta las variables de entorno: `MAIL_HOST`, `MAIL_PORT`, `MAIL_ENCRYPTION`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_FROM_ADDR`
 
-## Testing Email Configuration
+## Probar la Configuración de Email
 
-1. Access https://intranet.afapitau.uy/snipeit/setup
-2. In the "Email" section, click "Send Test"
-3. Verify that the email is sent correctly
+1. Acceder a https://intranet.afapitau.uy/snipeit/setup
+2. En la sección "Email", hacer clic en "Send Test"
+3. Verificar que el email se envíe correctamente
 
-## Updating Credentials
+## Actualizar Credenciales
 
-To change credentials:
+Para cambiar las credenciales:
 
-1. Edit `snipeit_email_credentials.json`
-2. Remove the old secret: `docker secret rm snipeit_email_credentials`
-3. Create the new secret: `docker secret create snipeit_email_credentials snipeit_email_credentials.json`
-4. Update the service: `docker service update --force snipe-it_snipe-it-app`
+1. Editar `snipeit_email_credentials.json`
+2. Eliminar el secreto antiguo: `docker secret rm snipeit_email_credentials`
+3. Crear el nuevo secreto: `docker secret create snipeit_email_credentials snipeit_email_credentials.json`
+4. Actualizar el servicio: `docker service update --force snipe-it_snipe-it-app`
 
-## Related Files
+## Archivos Relacionados
 
-- `snipeit_email_credentials.json`: Credentials in JSON format
-- `entrypoint-wrapper.sh`: Script that reads and configures credentials
-- `docker-compose.yml`: Stack configuration with mounted secret
-- `docs/secrets.md`: Instructions for creating secrets
+- `snipeit_email_credentials.json`: Credenciales en formato JSON
+- `entrypoint-wrapper.sh`: Script que lee y configura las credenciales
+- `docker-compose.yml`: Configuración del stack con el secreto montado
+- `docs/secrets.md`: Instrucciones para crear secrets

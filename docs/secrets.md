@@ -1,115 +1,134 @@
-# Docker Swarm Secrets
+# Secrets de Docker Swarm
 
-This document describes how to create and manage Docker Swarm secrets for Snipe-IT deployment.
+Este documento describe cómo crear y gestionar secrets de Docker Swarm para el despliegue de Snipe-IT.
 
-## Email Credentials Secret
+## Secreto de Credenciales de Email
 
-### Prerequisites
+### Prerrequisitos
 
-The `snipeit_email_credentials.json` file with real credentials must not be in the repository. Use `snipeit_email_credentials.json.example` as a template.
+El archivo `snipeit_email_credentials.json` con credenciales reales no debe estar en el repositorio. Usar `snipeit_email_credentials.json.example` como plantilla.
 
-### Creating the Credentials File
+### Crear el Archivo de Credenciales
 
-If the `snipeit_email_credentials.json` file does not exist, create it from the example:
+Si el archivo `snipeit_email_credentials.json` no existe, crearlo desde el ejemplo:
 
 ```bash
 cd /home/ralex/apps/snipe-it
 cp snipeit_email_credentials.json.example snipeit_email_credentials.json
-# Edit the file with your real credentials
+# Editar el archivo con tus credenciales reales
 nano snipeit_email_credentials.json
 ```
 
-### Creating the Secret
+### Crear el Secreto
 
-Create the Docker Swarm secret from the JSON file:
+Crear el secreto de Docker Swarm desde el archivo JSON:
 
 ```bash
 cd /home/ralex/apps/snipe-it
 docker secret create snipeit_email_credentials snipeit_email_credentials.json
 ```
 
-The secret is created from a JSON file. Docker Swarm stores the file content as a secret.
+El secreto se crea desde un archivo JSON. Docker Swarm almacena el contenido del archivo como secreto.
 
-**Security Note:** Once the secret is created in Swarm, the local `snipeit_email_credentials.json` file is no longer required for operation (the secret is in Swarm), but it's useful to keep it locally for future updates. The file is protected by `.gitignore` and will not be included in the repository.
+**Nota de Seguridad:** Una vez creado el secreto en Swarm, el archivo local `snipeit_email_credentials.json` ya no es necesario para el funcionamiento (el secreto está en Swarm), pero es útil mantenerlo localmente para futuras actualizaciones. El archivo está protegido por `.gitignore` y no se incluirá en el repositorio.
 
-### Verifying the Secret
+### Verificar el Secreto
 
-Verify that the secret was created:
+Verificar que el secreto fue creado:
 
 ```bash
 docker secret ls | grep snipeit_email_credentials
 ```
 
-Expected output:
+Salida esperada:
 ```
 snipeit_email_credentials   2 minutes ago
 ```
 
-### Inspecting Secret Metadata
+### Inspeccionar Metadatos del Secreto
 
-View secret information (not the content):
+Ver información del secreto (no el contenido):
 
 ```bash
 docker secret inspect snipeit_email_credentials --pretty
 ```
 
-**Important:** You cannot view the secret content for security reasons. Only metadata is visible.
+**Importante:** No puedes ver el contenido del secreto por razones de seguridad. Solo se pueden ver metadatos.
 
-## JSON File Format
+## Formato del Archivo JSON
 
-The `snipeit_email_credentials.json` file must follow this structure:
+El archivo `snipeit_email_credentials.json` debe seguir esta estructura:
 
 ```json
 {
-  "smtp_host": "smtp.your-server.com",
-  "smtp_username": "user\\domain",
-  "smtp_password": "your_secure_password",
-  "email": "snipeit@your-domain.com"
+  "smtp_host": "smtp.tu-servidor.com",
+  "smtp_port": 587,
+  "smtp_encryption": "tls",
+  "smtp_username": "usuario\\dominio",
+  "smtp_password": "tu_contraseña_segura",
+  "email": "snipeit@tu-dominio.com"
 }
 ```
 
-### Username Format
+### Campos del JSON
 
-The backslash in the username must be escaped as `\\` in JSON:
+- `smtp_host`: Dirección del servidor SMTP (requerido)
+- `smtp_port`: Puerto SMTP (opcional, por defecto 587)
+- `smtp_encryption`: Tipo de encriptación: `"tls"`, `"ssl"` o `""` (opcional, por defecto `"tls"`)
+- `smtp_username`: Usuario SMTP (requerido)
+- `smtp_password`: Contraseña SMTP (requerido)
+- `email`: Dirección de email remitente (requerido)
 
-- Example: If the actual username is `unioncapital3\snipeit` (single backslash), in JSON it must be written as `"unioncapital3\\snipeit"` (double backslash)
-- When parsing the JSON, it will be correctly converted to `unioncapital3\snipeit` (single backslash)
-- Format is correct: `"unioncapital3\\snipeit"` in JSON → `unioncapital3\snipeit` when parsed
+### Formato del Username
 
-### Requirements
+El backslash en el username debe ser escapado como `\\` en JSON:
 
-- The file must be valid JSON format
-- Never commit `snipeit_email_credentials.json` to the repository (already in `.gitignore`)
+- Ejemplo: Si el username real es `unioncapital3\snipeit` (un solo backslash), en JSON debe escribirse como `"unioncapital3\\snipeit"` (doble backslash)
+- Al parsear el JSON, se convertirá correctamente a `unioncapital3\snipeit` (un solo backslash)
+- El formato es correcto: `"unioncapital3\\snipeit"` en JSON → `unioncapital3\snipeit` al parsear
 
-## Updating an Existing Secret
+### Configuración de Puerto y Encriptación
 
-To update the secret:
+- **Puerto 587 con TLS** (recomendado para autenticación): `"smtp_port": 587, "smtp_encryption": "tls"`
+- **Puerto 25 sin encriptación** (SMTP interno): `"smtp_port": 25, "smtp_encryption": ""`
+- **Puerto 465 con SSL** (legacy): `"smtp_port": 465, "smtp_encryption": "ssl"`
+
+Si no se especifican `smtp_port` o `smtp_encryption`, se usarán los valores por defecto: puerto 587 y encriptación TLS.
+
+### Requisitos
+
+- El archivo debe estar en formato JSON válido
+- Nunca hacer commit de `snipeit_email_credentials.json` al repositorio (ya está en `.gitignore`)
+
+## Actualizar un Secreto Existente
+
+Para actualizar el secreto:
 
 ```bash
-# 1. Remove the existing secret (only if not in use)
+# 1. Eliminar el secreto existente (solo si no está en uso)
 docker secret rm snipeit_email_credentials
 
-# 2. Create the new secret
+# 2. Crear el nuevo secreto
 docker secret create snipeit_email_credentials snipeit_email_credentials.json
 
-# 3. Update the service to use the new secret
+# 3. Actualizar el servicio para que use el nuevo secreto
 docker service update --secret-rm snipeit_email_credentials --secret-add snipeit_email_credentials snipe-it_snipe-it-app
 ```
 
-## Verifying Service Secret Usage
+## Verificar Uso del Secreto en el Servicio
 
-Verify that the service uses the secret:
+Verificar que el servicio usa el secreto:
 
 ```bash
 docker service inspect snipe-it_snipe-it-app --format '{{json .Spec.TaskTemplate.ContainerSpec.Secrets}}' | python3 -m json.tool
 ```
 
-## Removing a Secret
+## Eliminar un Secreto
 
-Remove a secret:
+Eliminar un secreto:
 
 ```bash
 docker secret rm snipeit_email_credentials
 ```
 
-**Note:** You can only remove secrets that are not being used by any service.
+**Nota:** Solo puedes eliminar secrets que no estén siendo usados por ningún servicio.
